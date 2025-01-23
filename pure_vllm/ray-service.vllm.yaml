@@ -9,7 +9,7 @@ spec:
     applications:
     - name: llm
       route_prefix: /
-      import_path: pure_vllm/vllm_serve:model
+      import_path: pure_vllm.vllm_serve:model
       deployments:
       - name: VLLMDeployment
         num_replicas: 1
@@ -17,7 +17,7 @@ spec:
           num_cpus: 6
           # NOTE: num_gpus is set automatically based on TENSOR_PARALLELISM
       runtime_env:
-        working_dir: "https://github.com/ray-project/kuberay/archive/master.zip"
+        working_dir: "https://github.com/blublinsky/vllm-ray-serve/blob/main/pure_vllm.zip"
         pip: ["vllm"]
         env_vars:
           MODEL_ID: "meta-llama/Meta-Llama-3-8B-Instruct"
