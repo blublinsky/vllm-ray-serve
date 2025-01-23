@@ -17,7 +17,7 @@ spec:
           num_cpus: 6
           # NOTE: num_gpus is set automatically based on TENSOR_PARALLELISM
       runtime_env:
-        working_dir: "https://github.com/blublinsky/vllm-ray-serve/blob/main/pure_vllm.zip"
+        working_dir: "https://github.com/blublinsky/vllm-ray-serve/blob/main/vllm-ray-serve.zip"
         pip: ["vllm"]
         env_vars:
           MODEL_ID: "meta-llama/Meta-Llama-3-8B-Instruct"
