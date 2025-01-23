@@ -1,0 +1,93 @@
+# Based on https://github.com/ray-project/kuberay/blob/master/ray-operator/config/samples/vllm/ray-service.vllm.yaml
+
+apiVersion: ray.io/v1
+kind: RayService
+metadata:
+  name: llama-3-8b
+spec:
+  serveConfigV2: |
+    applications:
+    - name: llm
+      route_prefix: /
+      import_path: pure_vllm/vllm_serve:model
+      deployments:
+      - name: VLLMDeployment
+        num_replicas: 1
+        ray_actor_options:
+          num_cpus: 6
+          # NOTE: num_gpus is set automatically based on TENSOR_PARALLELISM
+      runtime_env:
+        working_dir: "https://github.com/ray-project/kuberay/archive/master.zip"
+        pip: ["vllm"]
+        env_vars:
+          MODEL_ID: "meta-llama/Meta-Llama-3-8B-Instruct"
+          TENSOR_PARALLELISM: "1"
+          PIPELINE_PARALLELISM: "1"
+  rayClusterConfig:
+    headGroupSpec:
+      rayStartParams:
+        dashboard-host: '0.0.0.0'
+        num-cpus: '0'
+      template:
+        spec:
+          containers:
+            - name: ray-head
+              image: rayproject/ray-ml:2.40.0.160e35-py311
+              securityContext:
+                allowPrivilegeEscalation: false
+                runAsNonRoot: true
+                runAsUser: 1000
+              resources:
+                limits:
+                  cpu: "8"
+                  memory: "32Gi"
+                requests:
+                  cpu: "8"
+                  memory: "32Gi"
+              ports:
+                - containerPort: 6379
+                  name: gcs-server
+                - containerPort: 8265
+                  name: dashboard
+                - containerPort: 10001
+                  name: client
+                - containerPort: 8000
+                  name: serve
+              env:
+                - name: HUGGING_FACE_HUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: hf-secret
+                      key: hf_api_token
+    workerGroupSpecs:
+      - replicas: 1
+        minReplicas: 0
+        maxReplicas: 4
+        groupName: gpu-group
+        rayStartParams: {}
+        template:
+          spec:
+            containers:
+              - name: llm
+                image: rayproject/ray-ml:2.40.0.160e35-py311
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                env:
+                  - name: HUGGING_FACE_HUB_TOKEN
+                    valueFrom:
+                      secretKeyRef:
+                        name: hf-secret
+                        key: hf_api_token
+                resources:
+                  limits:
+                    cpu: "8"
+                    memory: "20Gi"
+                    nvidia.com/gpu: "1"
+                  requests:
+                    cpu: "8"
+                    memory: "20Gi"
+                    nvidia.com/gpu: "1"
+            nodeSelector:
+              nvidia.com/gpu.product: NVIDIA-A100-80GB-PCIe

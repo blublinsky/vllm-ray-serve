@@ -1,0 +1,28 @@
+# Dummy pod for building serve deployment
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: playground
+  namespace: discovery-dev
+spec:
+  containers:
+    - name: playground
+      image: rayproject/ray-ml:2.40.0.160e35-py311
+      command: [ "/bin/bash", "-c", "--" ]
+      args: [ 'trap : TERM INT; sleep infinity & wait;' ]
+      securityContext:
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        runAsUser: 1000
+      resources:
+        limits:
+          cpu: '8'
+          memory: 128Gi
+          nvidia.com/gpu: '1'
+        requests:
+          cpu: '8'
+          memory: 128Gi
+          nvidia.com/gpu: '1'
+  nodeSelector:
+    nvidia.com/gpu.product: NVIDIA-A100-80GB-PCIe
