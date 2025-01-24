@@ -18,9 +18,9 @@ spec:
           # NOTE: num_gpus is set automatically based on TENSOR_PARALLELISM
       runtime_env:
         working_dir: "https://github.com/blublinsky/vllm-ray-serve/archive/master.zip"
-        pip: ["vllm==0.6.4"]
+        pip: ["vllm"]
         env_vars:
-          MODEL_ID: "NousResearch/Meta-Llama-3-8B-Instruct"
+          MODEL_ID: "meta-llama/Meta-Llama-3-8B-Instruct"
           TENSOR_PARALLELISM: "1"
           PIPELINE_PARALLELISM: "1"
   rayClusterConfig:
