@@ -17,10 +17,10 @@ spec:
           num_cpus: 6
           # NOTE: num_gpus is set automatically based on TENSOR_PARALLELISM
       runtime_env:
-        working_dir: "https://github.com/blublinsky/vllm-ray-serve/blob/main/vllm-ray-serve.zip"
-        pip: ["vllm"]
+        working_dir: "https://github.com/blublinsky/vllm-ray-serve/archive/master.zip"
+        pip: ["vllm==0.6.4"]
         env_vars:
-          MODEL_ID: "meta-llama/Meta-Llama-3-8B-Instruct"
+          MODEL_ID: "NousResearch/Meta-Llama-3-8B-Instruct"
           TENSOR_PARALLELISM: "1"
           PIPELINE_PARALLELISM: "1"
   rayClusterConfig:
@@ -75,7 +75,7 @@ spec:
                   runAsNonRoot: true
                   runAsUser: 1000
                 env:
-                  - name: HUGGING_FACE_HUB_TOKEN
+                  - name: HF_TOKEN
                     valueFrom:
                       secretKeyRef:
                         name: hf-secret

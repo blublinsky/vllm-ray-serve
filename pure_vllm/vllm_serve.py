@@ -2,7 +2,6 @@
 Based on https://github.com/ray-project/kuberay/blob/master/ray-operator/config/samples/vllm/serve.py
 and https://docs.ray.io/en/latest/serve/tutorials/vllm-example.html
 """
-
 import os
 
 from typing import Dict, Optional, List
@@ -22,11 +21,18 @@ from vllm.entrypoints.openai.protocol import (
     ChatCompletionResponse,
     ErrorResponse,
 )
+from vllm.entrypoints.openai.serving_engine import BaseModelPath, PromptAdapterPath
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_engine import LoRAModulePath
+from vllm.entrypoints.chat_utils import ChatTemplateContentFormatOption
 from vllm.utils import FlexibleArgumentParser
+from vllm.entrypoints.logger import RequestLogger
 
+
+CACHE_LOCATION = "/home/ray/cache"
 logger = logging.getLogger("ray.serve")
+os.environ["HF_HUB_CACHE"] = CACHE_LOCATION
+
 
 app = FastAPI()
 
@@ -35,11 +41,13 @@ app = FastAPI()
 @serve.ingress(app)
 class VLLMDeployment:
     def __init__(
-            self,
-            engine_args: AsyncEngineArgs,
-            response_role: str,
-            lora_modules: Optional[List[LoRAModulePath]] = None,
-            chat_template: Optional[str] = None,
+        self,
+        engine_args: AsyncEngineArgs,
+        response_role: str,
+        lora_modules: Optional[List[LoRAModulePath]] = None,
+        prompt_adapters: Optional[list[PromptAdapterPath]] = None,
+        request_logger: Optional[RequestLogger] = None,
+        chat_template: Optional[str] = None,
     ):
         logger.info(f"Starting with engine args: {engine_args}")
         self.openai_serving_chat = None
@@ -61,6 +69,8 @@ class VLLMDeployment:
         self.engine_args = engine_args
         self.response_role = response_role
         self.lora_modules = lora_modules
+        self.prompt_adapters = prompt_adapters
+        self.request_logger = request_logger
         self.chat_template = chat_template
         # We are using here AsyncLLMEngine (https://www.restack.io/p/vllm-answer-async-llm-engine-cat-ai)
         # designed to facilitate asynchronous operations for large language models. This engine allows for
@@ -87,16 +97,22 @@ class VLLMDeployment:
                 served_model_names = self.engine_args.served_model_name
             else:
                 served_model_names = [self.engine_args.model]
+            # serving models
+            base_model_paths = [
+                BaseModelPath(name=name, model_path=CACHE_LOCATION)
+                for name in served_model_names
+            ]
             # çreate (and remember) serving chat
             self.openai_serving_chat = OpenAIServingChat(
-                self.engine,
-                model_config,
-                served_model_names=served_model_names,
+                engine_client=self.engine,
+                model_config=model_config,
+                base_model_paths=base_model_paths,
                 response_role=self.response_role,
                 lora_modules=self.lora_modules,
                 chat_template=self.chat_template,
-                prompt_adapters=None,
-                request_logger=None,
+                chat_template_content_format=ChatTemplateContentFormatOption,
+                prompt_adapters=self.prompt_adapters,
+                request_logger=self.request_logger,
             )
         logger.info(f"Request: {request}")
         # Get result
@@ -118,12 +134,12 @@ class VLLMDeployment:
 def parse_vllm_args(cli_args: Dict[str, str]):
     """Parses vLLM args based on CLI inputs.
 
-    Currently uses argparse because vLLM doesn't expose Python models for all of the
+    Currently, uses argparse because vLLM doesn't expose Python models for all the
     config options we want to support.
     """
     """FlexibleArgumentParser is an argumentParser that allows both underscore and dash in names."""
     parser = FlexibleArgumentParser(description="vLLM CLI")
-    # defines parcing arguments for VLLM
+    # defines parsing arguments for VLLM
     parser = make_arg_parser(parser)
     # build cli like string
     arg_strings = []
