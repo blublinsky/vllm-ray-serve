@@ -12,9 +12,24 @@ Implementation consists of 3 main parts:
 
 ## Support
 
+Running VLLM is not supported on MAC, so we introduce a "playground" [pod](../support/pod.yaml), 
+that we can use on OS cluster to test our implementation code. It is based on Ray docker. To test 
+VLLM implementations we need to:
+* Install VLLM
+* Set `HF_TOKEN` to enable access to models
+* Uninstall `pynvml` (improves performance)
+Once this is done we can use `serve` cli command to test our implementation
+
+For running on OS cluster we use `hf-secret` [secret](../support/hf_secret.yaml) to store HF token
+that is used by Ray cluster
 
 ## Pure VLLM implementation
 
+This contains 2 files:
+* [vllm_serve](vllm_serve.py) containing the actual implementation, updated to current software versions
+* [reployment](ray-service.vllm.yaml) based on KubeRay cluster and adapted to our OS cluster
 
 ## Client
+
+A very simple [client](../client/query.py) is implemented to test OpenAI protocol
 
