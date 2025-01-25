@@ -9,7 +9,7 @@ spec:
     applications:
     - name: llm
       route_prefix: /
-      import_path: pure_vllm.vllm_serve_063_post1:model
+      import_path: pure_vllm.vllm_serve_066_post1:model
       deployments:
       - name: VLLMDeployment
         num_replicas: 1
@@ -18,7 +18,7 @@ spec:
           # NOTE: num_gpus is set automatically based on TENSOR_PARALLELISM
       runtime_env:
         working_dir: "https://github.com/blublinsky/vllm-ray-serve/archive/master.zip"
-        pip: ["vllm==0.6.3.post1"]
+        pip: ["vllm==0.6.6.post1"]
         env_vars:
           MODEL_ID: "meta-llama/Meta-Llama-3-8B-Instruct"
           TENSOR_PARALLELISM: "1"
