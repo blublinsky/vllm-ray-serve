@@ -26,7 +26,7 @@ that is used by Ray cluster
 ## Pure VLLM implementation
 
 This contains 2 files:
-* [vllm_serve](vllm_serve.py) containing the actual implementation, updated to current software versions
+* [vllm_serve](vllm_serve_066_post1.py) containing the actual implementation, updated to current software versions
 * [reployment](ray-service.vllm.yaml) based on KubeRay cluster and adapted to our OS cluster
 
 ## Client

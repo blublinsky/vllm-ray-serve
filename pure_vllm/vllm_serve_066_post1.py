@@ -2,6 +2,7 @@
 Based on https://github.com/ray-project/kuberay/blob/master/ray-operator/config/samples/vllm/serve.py
 and https://docs.ray.io/en/latest/serve/tutorials/vllm-example.html
 """
+
 import os
 
 from typing import Dict, Optional, List
@@ -82,7 +83,7 @@ class VLLMDeployment:
 
     @app.post("/v1/chat/completions")
     async def create_chat_completion(
-            self, request: ChatCompletionRequest, raw_request: Request
+        self, request: ChatCompletionRequest, raw_request: Request
     ):
         """OpenAI-compatible HTTP endpoint.
 
@@ -173,4 +174,9 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
 
 
 model = build_app(
-    {"model": os.environ['MODEL_ID'], "tensor-parallel-size": os.environ['TENSOR_PARALLELISM'], "pipeline-parallel-size": os.environ['PIPELINE_PARALLELISM']})
+    {
+        "model": os.environ["MODEL_ID"],
+        "tensor-parallel-size": os.environ["TENSOR_PARALLELISM"],
+        "pipeline-parallel-size": os.environ["PIPELINE_PARALLELISM"],
+    }
+)
