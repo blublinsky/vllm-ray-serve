@@ -1,6 +1,7 @@
 import os
 import logging
 import asyncio
+import nest_asyncio
 from typing import Any, Optional, AsyncGenerator, Mapping
 
 from ray import serve
@@ -9,7 +10,7 @@ from ray.serve.handle import DeploymentHandle
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.inputs import PromptType
-from vllm.sampling_params import SamplingParams
+from vllm.sampling_params import SamplingParams, BeamSearchParams
 from vllm.lora.request import LoRARequest
 from vllm.prompt_adapter.request import PromptAdapterRequest
 from vllm.outputs import EmbeddingRequestOutput, RequestOutput
@@ -21,6 +22,7 @@ from vllm.transformers_utils.tokenizer import AnyTokenizer
 CACHE_LOCATION = "/home/ray/cache"
 logger = logging.getLogger("ray.serve")
 os.environ["HF_HUB_CACHE"] = CACHE_LOCATION
+nest_asyncio.apply()
 
 
 @serve.deployment(name="AsyncLLMEngine", ray_actor_options={"num_gpus": 1, "num_cpus": 4})
@@ -81,6 +83,28 @@ class AsyncLLMEngineDeployment:
         return self.engine.generate(prompt=prompt, sampling_params=sampling_params, request_id=request_id,
                                     lora_request=lora_request, trace_headers=trace_headers,
                                     prompt_adapter_request=prompt_adapter_request, priority=priority)
+
+    async def beam_search(
+            self,
+            prompt: PromptType,
+            request_id: str,
+            params: BeamSearchParams,
+    ) -> AsyncGenerator[RequestOutput, None]:
+        """
+        The beam_search method implements beam search on top of generate. For example, to search using 5 beams and
+        output at most 50 tokens
+        Unlike greedy search, beam-search decoding keeps several hypotheses at each time step and eventually chooses
+        the hypothesis that has the overall highest probability for the entire sequence. This has the advantage of
+        identifying high-probability sequences that start with lower probability initial tokens and would’ve been
+        ignored by the greedy search.
+        :param prompt: The prompt to the LLM. See :class:`~vllm.inputs.PromptType
+            `for more details about the format of each input.
+        :param request_id: request id
+        :param params: The beam search parameters
+        :return:
+        """
+        logger.info("AsyncLLMEngine - beam search request")
+        return self.engine.beam_search(prompt=prompt, request_id=request_id, params=params)
 
     async def encode(
         self,
@@ -171,12 +195,85 @@ class AsyncLLMEngineDeployment:
         logger.info("AsyncLLMEngine - get tokenizer request")
         return await self.engine.get_tokenizer(lora_request=lora_request)
 
+    def errored(self) -> bool:
+        """
+        Check if the engine in error
+        :return:
+        """
+        return self.engine.errored
 
-async def gen(engine: DeploymentHandle, example_input: dict[str, Any], r_id: int) -> list[str]:
-    results_generator = engine.options(stream=True).generate.remote(
+    async def is_tracing_enabled(self) -> bool:
+        """
+        Check if tracing is enable
+        :return:
+        """
+        return await self.engine.is_tracing_enabled()
+
+
+class AsyncLLMEngineProxy:
+    """
+    This class is a proxy around AsyncLLMEngineDeployment that hides the fact that
+    a deployment is a Ray Actor requiring remoting. We need this wrapper to be able to use
+    OpenAIServingChat as is with the deployment
+    """
+    def __init__(self, engine: DeploymentHandle):
+        self.engine = engine
+
+    async def is_tracing_enabled(self) -> bool:
+        return await self.engine.is_tracing_enabled.remote()
+
+    async def errored_async(self):
+        return await self.engine.errored.remote()
+
+    @property
+    def errored(self) -> bool:
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(self.errored_async())
+
+    async def get_tokenizer(
+            self,
+            lora_request: Optional[LoRARequest] = None,
+    ) -> AnyTokenizer:
+        return await self.engine.get_tokenizer.remote(lora_request=lora_request)
+
+    def generate(
+            self,
+            prompt: PromptType,
+            sampling_params: SamplingParams,
+            request_id: str,
+            lora_request: Optional[LoRARequest] = None,
+            trace_headers: Optional[Mapping[str, str]] = None,
+            prompt_adapter_request: Optional[PromptAdapterRequest] = None,
+            priority: int = 0,
+    ) -> AsyncGenerator[RequestOutput, None]:
+        return self.engine.options(stream=True).generate.remote(
+            prompt=prompt,
+            sampling_params=sampling_params,
+            request_id=request_id,
+            lora_request=lora_request,
+            trace_headers=trace_headers,
+            prompt_adapter_request=prompt_adapter_request,
+            priority=priority
+        )
+
+    def beam_search(
+            self,
+            prompt: PromptType,
+            request_id: str,
+            params: BeamSearchParams,
+    ) -> AsyncGenerator[RequestOutput, None]:
+        return self.engine.options(stream=True).beam_search.remote(
+            prompt=prompt,
+            request_id=request_id,
+            params=params,
+        )
+
+
+async def gen(engine: AsyncLLMEngineProxy, example_input: dict[str, Any], r_id: int) -> list[str]:
+    results_generator = engine.generate(
         prompt=example_input["prompt"],
         sampling_params=SamplingParams(temperature=example_input["temperature"]),
-        request_id=r_id,
+        request_id=str(r_id),
     )
     final_output = None
     async for request_output in results_generator:
@@ -204,9 +301,14 @@ async def main():
         },
     ]
 
+    proxy = AsyncLLMEngineProxy(engine=handle)
     for i in range(len(example_inputs)):
-        result = await gen(engine=handle, example_input=example_inputs[i], r_id=i)
+        result = await gen(engine=proxy, example_input=example_inputs[i], r_id=i)
         logger.info(f"Generation result is  {result}")
+
+    logger.info(f"engine error {proxy.errored}")
+
+    logger.info(f"Tracing enabled {await proxy.is_tracing_enabled()}")
 
     decoding_config = await handle.get_decoding_config.remote()
     logger.info(f"decoding config {decoding_config}")
@@ -222,10 +324,10 @@ async def main():
 
     schedule_config = await handle.get_scheduler_config.remote()
     logger.info(f"scheduler config {schedule_config}")
-"""
-    tokenizer = await handle.get_tokenizer.remote()
+
+    tokenizer = await proxy.get_tokenizer()
     logger.info(f"tokenizer {tokenizer}")
-"""
+
 
 if __name__ == "__main__":
     asyncio.run(main())
