@@ -4,7 +4,7 @@
 * [multiple-deployments](multiple_deployments) - splitting VLLM code into 2 separate deployments - 
 Async LLM engine and OpenAI HTTP server
 
-## Why bother with multiple deployments
+## Why bother with multiple deployments?
 
 Some considerations:
 
