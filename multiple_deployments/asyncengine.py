@@ -36,7 +36,7 @@ class AsyncLLMEngineDeployment:
         engine_args: AsyncEngineArgs,
     ):
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
-        logger.info("Created AsyncLLMEngine")
+        logger.debug("Created AsyncLLMEngine")
 
     async def abort(self, request_id: str) -> None:
         """
@@ -44,7 +44,7 @@ class AsyncLLMEngineDeployment:
         :param request_id: request id
         :return: None
         """
-        logger.info("AsyncLLMEngine - abort request")
+        logger.debug("AsyncLLMEngine - abort request")
         return await self.engine.abort(request_id=request_id)
 
     async def check_health(self) -> None:
@@ -200,6 +200,7 @@ class AsyncLLMEngineDeployment:
         Check if the engine in error
         :return:
         """
+        logger.info("AsyncLLMEngine - get error status")
         return self.engine.errored
 
     async def is_tracing_enabled(self) -> bool:
@@ -207,6 +208,7 @@ class AsyncLLMEngineDeployment:
         Check if tracing is enable
         :return:
         """
+        logger.info("AsyncLLMEngine - get tracing enabled request")
         return await self.engine.is_tracing_enabled()
 
 
