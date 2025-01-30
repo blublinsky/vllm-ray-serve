@@ -220,13 +220,13 @@ class AsyncLLMEngineProxy:
     async def is_tracing_enabled(self) -> bool:
         return await self.engine.is_tracing_enabled.remote()
 
-    async def errored_async(self):
-        return await self.engine.errored.remote()
-
     @property
     def errored(self) -> bool:
         loop = asyncio.get_event_loop()
-        return loop.run_until_complete(self.errored_async())
+        return loop.run_until_complete(self.engine.errored.remote())
+
+    async def get_model_config(self) -> ModelConfig:
+        return await self.engine.get_model_config.remote()
 
     async def get_tokenizer(
             self,

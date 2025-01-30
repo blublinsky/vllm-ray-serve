@@ -64,7 +64,7 @@ async def main():
     lora_config = await handle.get_lora_config.remote()
     logger.info(f"LoRA config {lora_config}")
 
-    model_config = await handle.get_model_config.remote()
+    model_config = await proxy.get_model_config()
     logger.info(f"model config {model_config}")
 
     para_config = await handle.get_parallel_config.remote()
@@ -73,9 +73,10 @@ async def main():
     schedule_config = await handle.get_scheduler_config.remote()
     logger.info(f"scheduler config {schedule_config}")
 
+"""
     tokenizer = await proxy.get_tokenizer()
     logger.info(f"tokenizer {tokenizer}")
-
+"""
 
 if __name__ == "__main__":
     asyncio.run(main())
